@@ -47,3 +47,48 @@ Even though we didn't query by `product_id` standalone, this index is vital for 
 The trade-off of adding indexes is increased disk space utilization and slower write throughput. Every time data changes, the database must keep the indexes updated. Two operations that are now slightly slower are:
 * **`INSERT`:** New records require calculating and writing new nodes into multiple B-Tree index files.
 * **`UPDATE`:** Modifying indexed columns (like `order_date` or `email`) forces the database to relocate index pointers.
+
+
+---
+
+## 💪 Stretch Challenges
+
+### Challenge 1: Partial Index
+To demonstrate the efficiency of partial indexes, two indexes were created and compared based on their storage size:
+1. A full index tracking `order_date` across all rows (`idx_orders_date_full`).
+2. A partial index tracking `order_date` only for rows `WHERE status = 'paid'` (`idx_orders_date_partial`).
+
+#### Storage Comparison Results (`\di+` Output):
+* **Full Index Size (`idx_orders_date_full`):** 2208 kB
+* **Partial Index Size (`idx_orders_date_partial`):** 456 kB
+
+#### Proof of Efficiency:
+The partial index is roughly **5 times smaller** than the full index. Because the synthetic data distributes statuses evenly across 5 distinct values, filtering by `status = 'paid'` allows PostgreSQL to index only ~20% of the total records (the paid ones). This drastically reduces disk I/O, saves storage space, and keeps the index lean and highly performant in memory-constrained environments.
+
+### Challenge 2: Composite Ordering
+A multi-column composite index was created to handle both filtering and sorting structures efficiently using the columns: customer_id, status, and order_date DESC.
+
+'''CREATE INDEX idx_composite_cust_status_date ON orders (customer_id, status, order_date DESC);΄΄΄
+
+#### Query Execution Verification:
+When running a query filtered by customer_id = 5000 AND status = 'paid' and ordered by order_date DESC, PostgreSQL utilized the newly created composite index:
+
+* **Node Used:** Bitmap Index Scan on idx_composite_cust_status_date
+* **Rows Retrieved:** 4 rows
+* **Execution Time:** 0.225 ms
+
+#### Why it is efficient:
+Instead of creating multiple separate indexes for each column—which would increase write overhead during updates—this single composite index addresses complex multi-column predicates. It satisfies point lookups on customer_id and status while simultaneously positioning the database to optimize ordering constraints.
+
+### Challenge 4: Find a Dead Index
+
+By querying the PostgreSQL internal statistics view pg_stat_user_indexes, the usage of all custom indexes was analyzed to find unused locations using the following query:
+
+SELECT indexrelname, idx_scan FROM pg_stat_user_indexes WHERE schemaname = 'shop';
+
+#### Verification & Identification:
+* The index **idx_orders_date_full** showed an idx_scan value of **0**.
+* **Reason:** This index was created during Challenge 1 purely for storage size comparison purposes. Since the production application and our lab queries either use the main idx_orders_date or the highly specialized partial/composite indexes, this full index remains completely untouched by the query planner.
+
+#### Clean-up Action:
+To eliminate unnecessary disk storage (saving 2208 kB) and remove redundant write overhead during INSERT or UPDATE operations, the dead index was officially dropped from the schema using the command: DROP INDEX idx_orders_date_full;
