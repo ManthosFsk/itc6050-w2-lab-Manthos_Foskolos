@@ -1,0 +1,53 @@
+// Step 2: Logical Model
+
+Table Customer {
+  customer_id int [pk]
+  email varchar [unique, not null]
+  first_name varchar [not null]
+  last_name varchar [not null]
+}
+
+Table Address {
+  address_id int [pk]
+  customer_id int [not null]
+  line1 varchar [not null]
+  city varchar [not null]
+  postcode varchar [not null]
+  country varchar [not null]
+  is_default boolean [not null]
+}
+
+Table Category {
+  category_id int [pk]
+  name varchar [not null]
+}
+
+Table Product {
+  product_id int [pk]
+  category_id int [not null]
+  name varchar [not null]
+  unit_price decimal [not null]
+}
+
+Table orders {
+  order_id int [pk]
+  customer_id int [not null]
+  order_date datetime [not null]
+  status varchar [not null]
+  total decimal [not null]
+}
+
+Table order_item {
+  order_item_id int [pk]
+  order_id int [not null]
+  product_id int [not null]
+  quantity int [not null]
+  unit_price_at_sale decimal [not null]
+}
+
+// Σύνδεσμοι μεταξύ των πινάκων (Foreign Keys)
+Ref: Address.customer_id > Customer.customer_id
+Ref: Product.category_id > Category.category_id
+Ref: orders.customer_id > Customer.customer_id
+Ref: order_item.order_id > orders.order_id
+Ref: order_item.product_id > Product.product_id
