@@ -1,0 +1,14 @@
+# Week 1 Specific Configuration
+__pycache__/
+.env
+*.duckdb
+target/
+dbt_packages/
+.streamlit/secrets.toml
+.venv/
+.dlt/
+
+# IDE Configuration
+.vscode/
+.DS_Store
+Thumbs.db
